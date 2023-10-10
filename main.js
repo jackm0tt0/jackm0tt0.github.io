@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
 camera.position.z = 10.5;
-scene.background = new THREE.Color(0x111111);
+scene.background = new THREE.Color(0x111122);
 
 //create renderer and add it to canvas container
 const renderer = new THREE.WebGLRenderer();
@@ -23,10 +23,10 @@ scene.add( directionalLight );
 const loader = new GLTFLoader();
 
 // Load the cell mesh
-const cell_mat = new THREE.MeshBasicMaterial({color: 0x222222, transparent: true, opacity: 0.50})
+const cell_mat = new THREE.MeshBasicMaterial({color: 0x222244, transparent: true, opacity: 0.50})
 cell_mat.side = THREE.DoubleSide;
 
-const wf_mat = new THREE.LineBasicMaterial({ color: 0x666666 , linewidth: 1000});
+const wf_mat = new THREE.LineBasicMaterial({ color: 0x888888 , linewidth: 1000});
 
 loader.load( './public/models/cells.gltf', function ( cell_mesh ) {
     for ( let i = 0; i < cell_mesh.scene.children.length; i++){
@@ -106,5 +106,6 @@ function onResize(even) {
 window.addEventListener('resize', onResize);
 
 //other main setup
+
 onScroll(true);
 onResize(true);
