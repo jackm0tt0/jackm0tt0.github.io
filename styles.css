@@ -1,38 +1,94 @@
-.canvas-container-container {
-    position: fixed;
-    width: 100%;
-    padding-top: 100%;
+/* Basic Structure -------------------------- */
+
+body {
+    background-color: #111111;
+    overflow-x: hidden;
 }
 
 .canvas-container {
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    position: absolute;
+    /* center element */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    position: fixed;
+    /* fill page */
+    width: 100vw;
+    height: 100vh;
+    /* margin: -8px; */
+    /* padding-right: 40px; */
+    /* background */
     background-color: #222222;
-    margin: -8px;
+    
 }
 
 .web-container {
+    /* center element */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     position: absolute;
     z-index: 100;
-    width: 100%;
-    padding-top: 300%;
+    width: 100vw;
+    height: 500vw;
 }
 
+/* text styles -------------------------- */
+
+h1{
+    font-size: 150%;
+    line-height: 30%;
+    color: #ffffff
+}
+
+a:link{
+    color: #00aa00;
+    text-decoration: none;
+}
+
+a:visited{
+    color: #cc6600;
+    text-decoration: none;
+}
+
+a:hover{
+    color: #00ff00;
+    text-decoration: none;
+}
+
+a:active{
+    color: #aa6633;
+    text-decoration: none;
+}
+
+/* Text Box Overlays -------------------------- */
+
 .colored-box {
+    /* positioning per item */
     position: absolute;
-    background-color: #ffffff55;
+    /* appearance*/
+    background-color: #ffffff11;
     color: #dddddd;
     border-radius: 5px;
+    /* text */
+    font-family: monospace;
+    white-space: nowrap;
     padding: 2vw;
+    /* centering */
+    display: flex;
+    align-items: center;
+    /* holds vertical position when scaling */
+    /* margin-top: 0vh; */
+    display: inline;
+    color: #cccccc
+
+/* box instances  -------------------------- */
 }
 
 #panel_a {
-    width: 57%;
-    height: 5.4%;
-    left: 8.6%;
-    top: 13%;
-    font-size: 2.1vw
+    width: 47.5vw;
+    height: 2.6%;
+    left: 11.5%;
+    top: 48.3%;
+    
+    font-size: 1.8vw
 }
