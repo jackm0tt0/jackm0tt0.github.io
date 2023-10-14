@@ -1,43 +1,53 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+// Settings
+const light_color = 0xffffff;
+const light_target = new THREE.Vector3(10,5,30);
+const light_intesity = 3;
+
+const cell_color = 0x113322;
+const cell_op = 0.7;
+
+const wire_color = 0x888888;
+
+const deco_color = 0xdddddd;
+
+
 // setup scene
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
 camera.position.z = 10.5;
-scene.background = new THREE.Color(0x111122);
+scene.background = new THREE.Color(0x082416);
 
 //create renderer and add it to canvas container
 const renderer = new THREE.WebGLRenderer();
 const canvasContainer = document.querySelector('.canvas-container');
 renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+renderer.sortObjects = false;
 canvasContainer.appendChild(renderer.domElement);
 
 //add lights
-const directionalLight = new THREE.DirectionalLight( 0xffffff, 3 );
-const pos = new THREE.Vector3(10,5,30);
-directionalLight.position.copy(pos);
+const directionalLight = new THREE.DirectionalLight( light_color, light_intesity );
+directionalLight.position.copy(light_target);
 scene.add( directionalLight );
 
 // create loader
 const loader = new GLTFLoader();
 
 // Load the cell mesh
-const cell_mat = new THREE.MeshBasicMaterial({color: 0x222244, transparent: true, opacity: 0.50})
-cell_mat.side = THREE.DoubleSide;
-
-const wf_mat = new THREE.LineBasicMaterial({ color: 0x888888 , linewidth: 1000});
+const cell_mat = new THREE.MeshBasicMaterial({
+    color: cell_color, 
+    transparent: true, 
+    opacity: cell_op,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    })
 
 loader.load( './public/models/cells.gltf', function ( cell_mesh ) {
     for ( let i = 0; i < cell_mesh.scene.children.length; i++){
         //set child material
-        cell_mesh.scene.children[i].material = cell_mat;
-
-        // add wireframe
-        const wf_geom = new THREE.WireframeGeometry(cell_mesh.scene.children[i].geometry);
-        const wf = new THREE.LineSegments(wf_geom, wf_mat);
-        scene.add(wf);
-    }
+        cell_mesh.scene.children[i].material = cell_mat;    }
     
 	scene.add( cell_mesh.scene );
     renderer.render(scene, camera);
@@ -46,8 +56,26 @@ loader.load( './public/models/cells.gltf', function ( cell_mesh ) {
 	console.error( error );
 } );
 
+
+// Load the wire mesh
+const wire_mat = new THREE.MeshBasicMaterial({
+    color: wire_color,  
+    })
+
+loader.load( './public/models/wires.gltf', function ( wire_mesh ) {
+    for ( let i = 0; i < wire_mesh.scene.children.length; i++){
+        //set child material
+        wire_mesh.scene.children[i].material = wire_mat;    }
+    
+	scene.add( wire_mesh.scene );
+    renderer.render(scene, camera);
+
+}, undefined, function ( error ) {
+	console.error( error );
+} );
+
 // Load the decoration mesh
-const deco_mat = new THREE.MeshStandardMaterial({color: 0xffffff})
+const deco_mat = new THREE.MeshStandardMaterial({color: deco_color})
 
 loader.load( './public/models/decoration.gltf', function ( deco_mesh ) {
     for ( let i = 0; i < deco_mesh.scene.children.length; i++){
@@ -63,7 +91,7 @@ loader.load( './public/models/decoration.gltf', function ( deco_mesh ) {
 // Function to handle scroll events
 function onScroll(event) {
 
-    const scroll_factor = -11.7;
+    const scroll_factor = -11.65;
 
     //x scroll
     const scrollX = window.scrollX;
@@ -77,8 +105,7 @@ function onScroll(event) {
     renderer.render(scene, camera);
 }
 
-// Add a scroll event listener to trigger the onScroll function
-window.addEventListener('scroll', onScroll);
+
 
 
 // Function for resize events
@@ -102,10 +129,42 @@ function onResize(even) {
     document.y = 10
 }
 
-// Update the renderer size when the window is resized
-window.addEventListener('resize', onResize);
+
+
+function scrollToCenter() {
+    // Replace 'targetDiv' with the ID or selector of your target div.
+    const targetDiv = document.querySelector('#panel_hello');
+  
+    if (targetDiv) {
+      const windowHeight = window.innerHeight;
+      const divHeight = targetDiv.clientHeight;
+      const divTop = targetDiv.getBoundingClientRect().top + window.scrollY;
+      
+      // Calculate the scroll position to center the div.
+      const scrollPosition = divTop - (windowHeight / 2) + (divHeight / 2);
+  
+    //   // Set the scroll position using either 'html' or 'body', as cross-browser compatibility may vary.
+    //   document.documentElement.scrollTop = scrollPosition; // For modern browsers.
+    //   document.body.scrollTop = scrollPosition; // For older browsers.
+
+      window.scrollTo({ top: scrollPosition, behavior: 'smooth' });
+
+    }
+  }
+  
+  // Call the function when the page loads or as needed.
 
 //other main setup
 
-onScroll(true);
-onResize(true);
+// Update the renderer size when the window is resized
+window.addEventListener('resize', onResize);
+
+// Add a scroll event listener to trigger the onScroll function
+window.addEventListener('scroll', onScroll);
+
+scrollToCenter();
+
+onScroll();
+onResize();
+
+

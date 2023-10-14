@@ -14,9 +14,7 @@ body {
     /* fill page */
     width: 100vw;
     height: 100vh;
-    /* margin: -8px; */
-    /* padding-right: 40px; */
-    /* background */
+
     background-color: #222222;
     
 }
@@ -66,48 +64,41 @@ a:active{
     /* positioning per item */
     position: absolute;
     /* appearance*/
-    background-color: #ffffff11;
+    background-color: #226644aa;
     color: #dddddd;
     border-radius: 5px;
     /* text */
     font-family: monospace;
     white-space: nowrap;
     padding: 2vw;
-    /* centering */
-    display: flex;
-    align-items: center;
-    /* holds vertical position when scaling */
-    /* margin-top: 0vh; */
-    display: inline;
-    color: #cccccc
-
-
+    color: #cccccc;
 }
 
 /* box instances  -------------------------- */
 
 #panel_hello {
-    width: 47.5vw;
-    height: 3%;
+    width: 47.35%;
+    height: 2.9%;
     left: 11.5%;
-    top: 63.5%;
+    top: 63.53%;
     font-size: 1.8vw;
 }
 
 #panel_pitch {
-    width: 56.5vw;
-    height: 1.1%;
+    width: 56.0%;
+    height: 1.0%;
     left: 20%;
-    top: 71.12%;
+    top: 71.25%;
     font-size: 1.8vw;
     text-align: center;
 }
 
 #panel_work {
-    width: 56.5vw;
-    height: 1.1%;
+    width: 56.0%;
+    height: 1.0%;
     left: 20%;
-    top: 82.6%;
+    top: 82.8%;
     font-size: 1.8vw;
     text-align: center;
+    line-height: 4vw;
 }
