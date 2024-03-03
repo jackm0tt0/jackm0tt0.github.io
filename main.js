@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import TWEEN from 'three/addons/libs/tween.module.js';
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 
 // Settings
 const light_color = 0xffffff;
@@ -88,48 +90,42 @@ loader.load( './public/models/decoration.gltf', function ( deco_mesh ) {
 	console.error( error );
 } );
 
-// Function to handle scroll events
-function onScroll(event) {
+// build IK robot
 
-    const scroll_factor = -11.65;
+let dae;
+let kinematics;
+let kinematicsTween;
+const tweenParameters = {};
 
-    //x scroll
-    const scrollX = window.scrollX;
-    camera.position.x = scrollX / canvasContainer.clientWidth * scroll_factor;
+const col_loader = new ColladaLoader();
+col_loader.load( './public/models/collada/abb_irb52_7_120.dae', function ( collada ) {
 
-    //y scroll
-    const scrollY = window.scrollY;
-    camera.position.y = scrollY / canvasContainer.clientWidth * scroll_factor;
+    dae = collada.scene;
 
-    //rerender
-    renderer.render(scene, camera);
-}
+    dae.traverse( function ( child ) {
 
+        if ( child.isMesh ) {
 
+            // model does not have normals
+            child.material.flatShading = true;
 
+        }
 
-// Function for resize events
-function onResize(even) {
-    // Update the renderer size to match the container's current dimensions
-    // renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-    
-    onScroll();
-    
-    // Update the camera's aspect ratio if needed (important for perspective cameras)
-    camera.aspect = canvasContainer.offsetWidth / canvasContainer.offsetHeight;
-    // hFOV to vFOV
-    const hFOV = 58;
-    const vFOV = (2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(hFOV) / 2) / camera.aspect)) * THREE.MathUtils.RAD2DEG;
-    camera.fov = vFOV;
-    camera.updateProjectionMatrix();
-    renderer.render(scene, camera);
+    } );
 
-    // fix the scroll location
-    document.y = 10
-}
+    dae.scale.x = dae.scale.y = dae.scale.z = 10.0;
+    dae.updateMatrix();
+
+    kinematics = collada.kinematics;
+    console.log(kinematics)
+
+    scene.add( dae )
+    setupTween();
+
+});
 
 
+// SCENE FUNCTIONS
 
 function scrollToCenter() {
     // Replace 'targetDiv' with the ID or selector of your target div.
@@ -150,9 +146,117 @@ function scrollToCenter() {
       window.scrollTo({ top: scrollPosition, behavior: 'smooth' });
 
     }
-  }
+  };
+
+
+function setupTween() {
+
+    const duration = 2000;
+
+    const target = {};
+
+    for ( const prop in kinematics.joints ) {
+
+        if ( kinematics.joints.hasOwnProperty( prop ) ) {
+
+            if ( ! kinematics.joints[ prop ].static ) {
+
+                const joint = kinematics.joints[ prop ];
+
+                const old = tweenParameters[ prop ];
+
+                const position = old ? old : joint.zeroPosition;
+
+                tweenParameters[ prop ] = position;
+
+                target[ prop ] = THREE.MathUtils.randInt( joint.limits.min, joint.limits.max );
+                
+
+            }
+
+        }
+
+    }
+
+    kinematicsTween = new TWEEN.Tween( tweenParameters ).to( target, duration ).easing( TWEEN.Easing.Quadratic.Out );
+
+    kinematicsTween.onUpdate( function ( object ) {
+
+        for ( const prop in kinematics.joints ) {
+
+            if ( kinematics.joints.hasOwnProperty( prop ) ) {
+
+                if ( ! kinematics.joints[ prop ].static ) {
+
+                    kinematics.setJointValue( prop, object[ prop ] );
+
+                }
+
+            }
+
+        }
+
+    } );
+
+    kinematicsTween.start();
+
+    setTimeout( setupTween, duration );
+
+}
+
+
+// EVENT HANDLING FUNCTIONS 
+
+function animate_robot(){
+    requestAnimationFrame( animate_robot );
+    TWEEN.update()
+    renderer.render(scene,camera);
+}
+
+// Function to handle scroll events
+function onScroll(event) {
+
+    const scroll_factor = -11.65;
+
+    //x scroll
+    const scrollX = window.scrollX;
+    camera.position.x = scrollX / canvasContainer.clientWidth * scroll_factor;
+
+    //y scroll
+    const scrollY = window.scrollY;
+    camera.position.y = scrollY / canvasContainer.clientWidth * scroll_factor;
+
+    //rerender
+    renderer.render(scene, camera);
+}
+
+// Function for resize events
+function onResize(event) {
+    // Update the renderer size to match the container's current dimensions
+    // renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    
+    onScroll();
+    
+    // Update the camera's aspect ratio if needed (important for perspective cameras)
+    camera.aspect = canvasContainer.offsetWidth / canvasContainer.offsetHeight;
+    // hFOV to vFOV
+    const hFOV = 58;
+    const vFOV = (2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(hFOV) / 2) / camera.aspect)) * THREE.MathUtils.RAD2DEG;
+    camera.fov = vFOV;
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+
+    // fix the scroll location
+    document.y = 10
+}
   
-  // Call the function when the page loads or as needed.
+// Function for mouse movement (robot control)
+function onMouseMove(event) {
+    TWEEN.update()
+    renderer.render(scene, camera)
+    
+}
 
 //other main setup
 
@@ -162,9 +266,14 @@ window.addEventListener('resize', onResize);
 // Add a scroll event listener to trigger the onScroll function
 window.addEventListener('scroll', onScroll);
 
+// mouse position listeners for robot control
+window.addEventListener('mousemove', onMouseMove)
+
+
 scrollToCenter();
 
 onScroll();
 onResize();
 
+animate_robot()
 
