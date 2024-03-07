@@ -7,6 +7,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
+import Stats from 'three/addons/libs/stats.module.js';
 
 let camera, scene, renderer;
 let composer, outlinePass;
@@ -17,6 +18,9 @@ let ikSolver, robot_zone;
 
 let selectedObjects = [];
 
+let prevTime = performance.now();
+
+
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const mouse_3d = new THREE.Vector3(200,0,300);
@@ -24,6 +28,12 @@ const target = new THREE.Object3D();
 target.position.set(mouse_3d);
 
 const scene_width = 1000;
+
+const stats = new Stats();
+const statsContainer = document.getElementById( 'stats' );
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.top = '0px';
+statsContainer.appendChild( stats.domElement );
 
 init();
 animate();
@@ -205,9 +215,14 @@ function animate() {
 
     controls.update();
     //renderer.render( scene, camera );
+    stats.update();
     ikSolver?.update();
-    target.position.add(mouse_3d.clone().sub( target.position ).setLength(.3));
-    //console.log(target.position);
+    let time = performance.now();
+    target.position.add(mouse_3d.clone().sub( target.position ).setLength((time - prevTime)/5));
+    prevTime = time;
+    
+    //console.log(target.position)
+
     composer.render( scene, camera );
     requestAnimationFrame( animate );
 
@@ -271,16 +286,18 @@ function initRobot( robot_parts ){
 
     // "bone1", "bone2", "bone3"
     for ( let i = 1; i <= 5; i ++ ) {
+        // create new bone with location relative to origin
         const bone = new THREE.Bone();
         bone.position.copy(pts[i].clone().sub(pts[i-1]));
+
+        // setup bone heirarchy chain
         bone.parent = prevBone;
         bones.push( bone );
-        
         prevBone.add( bone );
         prevBone = bone;
 
+        // move meshes to origin
         robot_parts.joints["j"+String(i)].position.sub(pts[i])
-        //robot_parts.children[i+1].position.sub(pts[i]);
 
         // attach meshes\
         bones[i].add(robot_parts.joints["j"+String(i-1)]);
