@@ -9,18 +9,19 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
 
 let camera, scene, renderer;
-let composer, effectFXAA, outlinePass;
+let composer, outlinePass;
 let controls, gui;
 
-let ikSolver;
+let ikSolver, robot_zone;
 
 
 let selectedObjects = [];
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-const mouse_3d = new THREE.Vector3();
+const mouse_3d = new THREE.Vector3(200,0,300);
 const target = new THREE.Object3D();
+target.position.set(mouse_3d);
 
 const scene_width = 1000;
 
@@ -45,7 +46,7 @@ function init() {
     resize();
 
     camera.position.set( 1400, -1400, 1200 );
-    let look = new THREE.Vector3(0,0,200)
+    let look = new THREE.Vector3(0,0,500)
     camera.lookAt(look);
     
     // init scene
@@ -63,14 +64,32 @@ function init() {
     const rh_loader = new Rhino3dmLoader();
     
     rh_loader.setLibraryPath( 'https://unpkg.com/rhino3dm@8.0.0/' );
-    rh_loader.load( './public/models/robot.3dm', function ( object ) {
+    rh_loader.load( './public/models/robot.3dm', function ( rh_object ) {
 
         //When load is complete execute this:
-        object.name = "rhino_scene";
-        scene.add( object );
+        rh_object.name = "rhino_scene";
+        scene.add( rh_object );
+
+        let robot_parts = {};
+        robot_parts.joints = {};
+        rh_object.traverse( n => {
+
+            if (n.name === "rob_base") robot_parts.base = n;
+            if (n.name === "rob_0") robot_parts.joints.j0 = n;
+            if (n.name === "rob_1") robot_parts.joints.j1 = n;
+            if (n.name === "rob_2") robot_parts.joints.j2 = n;
+            if (n.name === "rob_3") robot_parts.joints.j3 = n;
+            if (n.name === "rob_4") robot_parts.joints.j4 = n;
+            if (n.name === "rob_5") robot_parts.joints.j5 = n;
+            if (n.name === "rob_skeleton") robot_parts.skeleton_polyline = n;
+            if (n.name === "rob_zone") robot_parts.zone = n;
+        });
+
+        // setup robot
+        initRobot( robot_parts );
         
         // helper for turning on and off layers
-        initGUI( object.userData.layers );
+        initGUI( rh_object.userData.layers );
 
         // hide loading sequence
         document.getElementById( 'loader' ).style.display = 'none';
@@ -84,160 +103,6 @@ function init() {
         console.log ( error );
 
     } );
-
-    // ROBOT STUFF
-
-    // Create target object for IK solver
-    target.position.x = 0;
-    target.position.y = 0;
-    target.position.z = 0;
-    scene.add(target);
-
-    
-
-    // create loader
-    const gltf_loader = new GLTFLoader();
-
-    // Load the rob mesh
-    const rob_color = 0xaa6600;    
-    const rob_mat = new THREE.MeshStandardMaterial({color: rob_color})
-    const rob_parts = {};
-    let skmesh = new THREE.SkinnedMesh();;
-    let bones = [];
-    let skeleton = new THREE.Skeleton();
-
-    gltf_loader.load( './public/models/robot_mesh_bigger.gltf', function ( rob_mesh ) {
-
-        for ( let i = 0; i < rob_mesh.scene.children.length; i++){
-            rob_mesh.scene.children[i].material = rob_mat;
-        }
-        
-
-        rob_mesh.scene.traverse( n => {
-
-            if ( n.name === 'rob_arm_0' ){
-                rob_parts.a0 = n
-                //scene.add(rob_parts.a0);
-            }            
-            if ( n.name === 'rob_arm_1' ) {
-                rob_parts.a1 = n;
-                //scene.add(rob_parts.a1);
-            }
-            if ( n.name === 'rob_arm_2' ) {
-                rob_parts.a2 = n;
-                //rob_parts.a2.material = rob_mat;
-                //scene.add(rob_parts.a2);
-            }
-            if ( n.name === 'rob_arm_3' ) {
-                rob_parts.a3 = n;
-                //rob_parts.a3.material = rob_mat;
-                //scene.add(rob_parts.a3);
-            }
-
-        } );
-
-        //scene.add( rob_parts.a1 );
-        //renderer.render(scene, camera);    
-
-        // "root"
-        let rootBone = new THREE.Bone();
-        rootBone.position.y = 0;
-        bones.push( rootBone );
-
-        // "bone0"
-        let prevBone = new THREE.Bone();
-        prevBone.position.y = -10;
-        prevBone.position.z = 20;
-        rootBone.add( prevBone );
-        bones.push( prevBone );
-
-        // "bone1", "bone2", "bone3"
-        for ( let i = 1; i <= 4; i ++ ) {
-            const bone = new THREE.Bone();
-            bone.position.y = 100;
-            bone.parent = prevBone;
-            bones.push( bone );
-            
-            prevBone.add( bone );
-            prevBone = bone;
-        }
-
-        // "target"
-        const targetBone = new THREE.Bone();
-        targetBone.position.x =  0
-        targetBone.position.y = 0
-        rootBone.add( targetBone );
-        bones.push( targetBone );
-
-
-         //
-        // skinned mesh
-        //
-        skmesh = new THREE.SkinnedMesh();
-        skeleton = new THREE.Skeleton( bones );
-
-        skmesh.add( bones[ 0 ] ); // "root" bone
-        skmesh.bind( skeleton );
-        target.attach(targetBone)
-        skmesh.boundingSphere = new THREE.Sphere(skmesh.position, 1);
-        scene.add(skmesh)
-
-        // attach meshes\
-        bones[1].add(rob_parts.a0);
-        bones[2].add(rob_parts.a1);
-        bones[3].add(rob_parts.a2);
-        bones[4].add(rob_parts.a3);
-
-        //
-        // ikSolver
-        //
-
-        const iks = [
-            {
-                target: 6, // "target"
-                effector: 5, // "bone3"
-                links: [ 
-                    { 
-                        index: 4,
-                        rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
-                        rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
-                    }, 
-                    { 
-                        index: 3,
-                        rotationMin: new THREE.Vector3( 0,-Math.PI*2, -Math.PI/2 ),
-                        rotationMax: new THREE.Vector3( 0,Math.PI*2, Math.PI/2 )
-                    }, 
-                    { 
-                        index: 2,
-                        rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
-                        rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
-                    }, 
-                    { 
-                        index: 1,
-                        rotationMin: new THREE.Vector3( 0,-Math.PI*2,0 ),
-                        rotationMax: new THREE.Vector3( 0,Math.PI*2,0 )
-                    } 
-                ], // "bone2", "bone1", "bone0"
-                iteration: 1,
-                minAngle: 0,
-                maxAngle: Math.PI/180
-            }
-        ];
-
-        ikSolver = new CCDIKSolver( skmesh, iks );
-
-        const helper = ikSolver.createHelper();
-        scene.add(helper);
-
-    }, undefined, function ( error ) {
-        console.error( error );
-    } );
-
-    const plane_geo = new THREE.PlaneGeometry(1000,1000);
-    const robot_plane = new THREE.Mesh( plane_geo, rob_mat);
-    //scene.add(robot_plane);
-
-    // ROBOT END
 
     // Controls in case you need to pan around the scene
     controls = new OrbitControls( camera, renderer.domElement );
@@ -280,11 +145,13 @@ function init() {
 
         const intersects = raycaster.intersectObject( scene, true );
 
-        let robot_hit = raycaster.intersectObjects([robot_plane]);
+        let robot_hit = raycaster.intersectObjects([robot_zone]);
 
         if (robot_hit.length > 0 ) {
             console.log("here")
-            mouse_3d.copy(robot_hit[0].point.clone());
+            mouse_3d.copy(robot_hit[1].point.clone());
+        }else{
+            mouse_3d.set(200,0,300);
         }
 
         if ( intersects.length > 0 ) {
@@ -295,6 +162,7 @@ function init() {
 
         } else {
 
+            
             outlinePass.selectedObjects = [];
 
         }
@@ -338,7 +206,7 @@ function animate() {
     controls.update();
     //renderer.render( scene, camera );
     ikSolver?.update();
-    target.position.add(mouse_3d.clone().sub( target.position ).setLength(.5));
+    target.position.add(mouse_3d.clone().sub( target.position ).setLength(.3));
     //console.log(target.position);
     composer.render( scene, camera );
     requestAnimationFrame( animate );
@@ -366,4 +234,126 @@ function initGUI( layers ) {
         } );
     }
 
+}
+
+function initRobot( robot_parts ){
+
+    // Set target object for IK solver
+    target.position.set(0,0,0);
+    scene.add(target);
+
+    // Load the rob mesh
+    let skmesh = new THREE.SkinnedMesh();;
+    let bones = [];
+    let skeleton = new THREE.Skeleton(); 
+
+    // build bones from the skeleton
+
+    const pts = [];
+    for (let i=0 ; i < robot_parts.skeleton_polyline.geometry.attributes.position.count; i++){
+        pts.push(new THREE.Vector3(
+            robot_parts.skeleton_polyline.geometry.attributes.position.array[i * 3],
+            robot_parts.skeleton_polyline.geometry.attributes.position.array[i * 3 + 1],
+            robot_parts.skeleton_polyline.geometry.attributes.position.array[i * 3 + 2]
+        ))
+    }
+
+    // "root"
+    let rootBone = new THREE.Bone();
+    rootBone.position.copy(pts[0]);
+    bones.push( rootBone );
+
+    // "bone0"
+    let prevBone = new THREE.Bone();
+    prevBone.position.copy(pts[0]);
+    rootBone.add( prevBone );
+    bones.push( prevBone );
+
+    // "bone1", "bone2", "bone3"
+    for ( let i = 1; i <= 5; i ++ ) {
+        const bone = new THREE.Bone();
+        bone.position.copy(pts[i].clone().sub(pts[i-1]));
+        bone.parent = prevBone;
+        bones.push( bone );
+        
+        prevBone.add( bone );
+        prevBone = bone;
+
+        robot_parts.joints["j"+String(i)].position.sub(pts[i])
+        //robot_parts.children[i+1].position.sub(pts[i]);
+
+        // attach meshes\
+        bones[i].add(robot_parts.joints["j"+String(i-1)]);
+    }
+
+    // "target"
+    const targetBone = new THREE.Bone();
+    rootBone.add( targetBone );
+    bones.push( targetBone );
+
+
+    //
+    // skinned mesh
+    //
+    skmesh = new THREE.SkinnedMesh();
+    skeleton = new THREE.Skeleton( bones );
+
+    skmesh.add( bones[ 0 ] ); // "root" bone
+    skmesh.bind( skeleton );
+    target.attach(targetBone)
+    skmesh.boundingSphere = new THREE.Sphere(skmesh.position, 1);
+    scene.add(skmesh)
+
+    //
+    // ikSolver
+    //
+
+    const iks = [
+        {
+            target: 7, // "target"
+            effector: 6, // "bone3"
+            links: [ 
+                { 
+                    index: 5,
+                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                }, 
+                { 
+                    index: 4,
+                    rotationMin: new THREE.Vector3( 0,0,-Math.PI*2),
+                    rotationMax: new THREE.Vector3( 0,0,Math.PI*2)
+                }, 
+                { 
+                    index: 3,
+                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                }, 
+                { 
+                    index: 2,
+                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                }, 
+                { 
+                    index: 1,
+                    rotationMin: new THREE.Vector3( 0,0,-Math.PI*2),
+                    rotationMax: new THREE.Vector3( 0,0,Math.PI*2)
+                } 
+            ], // "bone2", "bone1", "bone0"
+            iteration: 3,
+            minAngle: 0,
+            maxAngle: Math.PI/180
+        }
+    ];
+
+    ikSolver = new CCDIKSolver( skmesh, iks );
+
+    const helper = ikSolver.createHelper();
+    //scene.add(helper);
+
+    robot_zone = robot_parts.zone;
+
+    // const plane_geo = new THREE.PlaneGeometry(1000,1000);
+    // robot_plane = new THREE.Mesh( plane_geo, new THREE.MeshBasicMaterial());
+    // robot_plane.position.set(0,0,100);
+    // //scene.add(robot_plane);
 }
