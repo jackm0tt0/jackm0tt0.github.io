@@ -23,7 +23,8 @@ let prevTime = performance.now();
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-const mouse_3d = new THREE.Vector3(200,0,300);
+const default_robot_pos = new THREE.Vector3(100,10,350);
+const mouse_3d = default_robot_pos.clone();
 const target = new THREE.Object3D();
 target.position.set(mouse_3d);
 
@@ -56,7 +57,7 @@ function init() {
     resize();
 
     camera.position.set( 1400, -1400, 1200 );
-    let look = new THREE.Vector3(0,0,500)
+    let look = new THREE.Vector3(0,0,200)
     camera.lookAt(look);
     
     // init scene
@@ -115,7 +116,7 @@ function init() {
     } );
 
     // Controls in case you need to pan around the scene
-    controls = new OrbitControls( camera, renderer.domElement );
+    //controls = new OrbitControls( camera, renderer.domElement );
 
     // init composer
     composer = new EffectComposer( renderer );
@@ -161,7 +162,7 @@ function init() {
             console.log("here")
             mouse_3d.copy(robot_hit[1].point.clone());
         }else{
-            mouse_3d.set(200,0,300);
+            mouse_3d.copy(default_robot_pos);
         }
 
         if ( intersects.length > 0 ) {
@@ -213,12 +214,15 @@ function resize() {
 
 function animate() {
 
-    controls.update();
+    //controls.update();
     //renderer.render( scene, camera );
     stats.update();
     ikSolver?.update();
     let time = performance.now();
-    target.position.add(mouse_3d.clone().sub( target.position ).setLength((time - prevTime)/5));
+    if (target.position.distanceTo(mouse_3d)>1){
+        target.position.add(mouse_3d.clone().sub( target.position ).setLength((time - prevTime)/5));
+    }
+    
     prevTime = time;
     
     //console.log(target.position)
