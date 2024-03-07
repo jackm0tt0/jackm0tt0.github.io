@@ -1,354 +1,377 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Rhino3dmLoader } from 'three/addons/loaders/3DMLoader.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
 
-// Settings
-const light_color = 0xffffff;
-const light_target = new THREE.Vector3(10,5,30);
-const light_intesity = 3;
+let camera, scene, renderer;
+let composer, effectFXAA, outlinePass;
+let controls, gui;
 
-const cell_color = 0x113322;
-const cell_op = 0.7;
-
-const wire_color = 0x888888;
-const deco_color = 0xdddddd;
-const rob_color = 0xaa6600;
-
-// setup scene
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 1000 );
-camera.position.z = 10.5;
-scene.background = new THREE.Color(0x082416);
-
-//create renderer and add it to canvas container
-const renderer = new THREE.WebGLRenderer();
-const canvasContainer = document.querySelector('.canvas-container');
-renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-renderer.sortObjects = false;
-canvasContainer.appendChild(renderer.domElement);
-
-//add lights
-const directionalLight = new THREE.DirectionalLight( light_color, light_intesity );
-directionalLight.position.copy(light_target);
-scene.add( directionalLight );
-
-// create loader
-const loader = new GLTFLoader();
-
-// Load the cell mesh
-const cell_mat = new THREE.MeshBasicMaterial({
-    color: cell_color, 
-    transparent: true, 
-    opacity: cell_op,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-    })
-
-loader.load( './public/models/cells.gltf', function ( cell_mesh ) {
-    for ( let i = 0; i < cell_mesh.scene.children.length; i++){
-        //set child material
-        cell_mesh.scene.children[i].material = cell_mat;    }
-    
-	scene.add( cell_mesh.scene );
-    renderer.render(scene, camera);
-
-}, undefined, function ( error ) {
-	console.error( error );
-} );
-
-
-// Load the wire mesh
-const wire_mat = new THREE.MeshBasicMaterial({
-    color: wire_color,  
-    })
-
-loader.load( './public/models/wires.gltf', function ( wire_mesh ) {
-    for ( let i = 0; i < wire_mesh.scene.children.length; i++){
-        //set child material
-        wire_mesh.scene.children[i].material = wire_mat;    }
-    
-	scene.add( wire_mesh.scene );
-    renderer.render(scene, camera);
-
-}, undefined, function ( error ) {
-	console.error( error );
-} );
-
-// Load the decoration mesh
-const deco_mat = new THREE.MeshStandardMaterial({color: deco_color})
-
-// loader.load( './public/models/decoration.gltf', function ( deco_mesh ) {
-//     for ( let i = 0; i < deco_mesh.scene.children.length; i++){
-//         deco_mesh.scene.children[i].material = deco_mat;
-//     }
-    
-// 	scene.add( deco_mesh.scene );
-//     renderer.render(scene, camera);
-// }, undefined, function ( error ) {
-// 	console.error( error );
-// } );
-
-
-// ROBOT STUFF
-
-// Create target object for IK solver
-const target = new THREE.Object3D();
-target.position.x = 0;
-target.position.y = 0;
-target.position.z = 0;
-scene.add(target);
-
-
-// Load the rob mesh
-const rob_mat = new THREE.MeshStandardMaterial({color: rob_color})
-const rob_parts = {};
 let ikSolver;
-let bones = []
-let skmesh = new THREE.SkinnedMesh();
-let skeleton = new THREE.Skeleton();
 
-loader.load( './public/models/robot_mesh.gltf', function ( rob_mesh ) {
-    for ( let i = 0; i < rob_mesh.scene.children.length; i++){
-        rob_mesh.scene.children[i].material = rob_mat;
-    }
+
+let selectedObjects = [];
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const target = new THREE.Object3D();
+const mouse_3d = new THREE.Vector3();
+
+const scene_width = 1000;
+
+
+
+
+init();
+animate();
+
+function init() {
+
+    // Z-up
+    THREE.Object3D.DEFAULT_UP.set( 0, 0, 1 );
+
+    // init renderer
+    renderer = new THREE.WebGLRenderer( { antialias: true } );
+    renderer.setPixelRatio( window.devicePixelRatio );
+    const canvasContainer = document.querySelector('.canvas-container');
+    renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    renderer.sortObjects = false;
+    canvasContainer.appendChild(renderer.domElement);
+
+    // init camera
+    camera = new THREE.OrthographicCamera(-1,1,1,-1,0.01,10000);
+    resize();
+
+    camera.position.set( 1400, -1400, 1200 );
+    let look = new THREE.Vector3(0,0,200)
+    camera.lookAt(look);
     
+    // init scene
+    scene = new THREE.Scene();
+    
+    // Main Lights
+    const directionalLight = new THREE.DirectionalLight( 0xffffff, 2 );
+    directionalLight.position.set( 1, -3, 10 );
+    scene.add( directionalLight );
 
-    rob_mesh.scene.traverse( n => {
+    const domeLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
+    scene.add(domeLight);
+    
+    // Load from Rhino
+    const rh_loader = new Rhino3dmLoader();
+    
+    rh_loader.setLibraryPath( 'https://unpkg.com/rhino3dm@8.0.0/' );
+    rh_loader.load( './public/models/robot.3dm', function ( object ) {
 
-        if ( n.name === 'rob_arm_0' ){
-            rob_parts.a0 = n
-            //scene.add(rob_parts.a0);
-        }            
-        if ( n.name === 'rob_arm_1' ) {
-            rob_parts.a1 = n;
-            //scene.add(rob_parts.a1);
-        }
-        if ( n.name === 'rob_arm_2' ) {
-            rob_parts.a2 = n;
-            //rob_parts.a2.material = rob_mat;
-            //scene.add(rob_parts.a2);
-        }
-        if ( n.name === 'rob_arm_3' ) {
-            rob_parts.a3 = n;
-            //rob_parts.a3.material = rob_mat;
-            //scene.add(rob_parts.a3);
-        }
+        //When load is complete execute this:
+        object.name = "rhino_scene";
+        scene.add( object );
+        
+        // helper for turning on and off layers
+        initGUI( object.userData.layers );
+
+        // hide loading sequence
+        document.getElementById( 'loader' ).style.display = 'none';
+
+    }, function ( progress ) {
+
+        console.log ( ( progress.loaded / progress.total * 100 ) + '%' );
+
+    }, function ( error ) {
+
+        console.log ( error );
 
     } );
 
-	//scene.add( rob_parts.a1 );
-    renderer.render(scene, camera);    
+    // ROBOT STUFF
 
-    // "root"
-    let rootBone = new THREE.Bone();
-    rootBone.position.y = 0;
-    bones.push( rootBone );
+    // Create target object for IK solver
+    const target = new THREE.Object3D();
+    target.position.x = 0;
+    target.position.y = 0;
+    target.position.z = 0;
+    scene.add(target);
 
-    // "bone0"
-    let prevBone = new THREE.Bone();
-    prevBone.position.y = -17;
-    prevBone.position.z = 0;
-    rootBone.add( prevBone );
-    bones.push( prevBone );
+    
 
-    // "bone1", "bone2", "bone3"
-    for ( let i = 1; i <= 4; i ++ ) {
-        const bone = new THREE.Bone();
-        bone.position.y = 1;
-        bone.parent = prevBone;
-        bones.push( bone );
-        
-        prevBone.add( bone );
-        prevBone = bone;
-    }
+    // create loader
+    const gltf_loader = new GLTFLoader();
 
-    // "target"
-    const targetBone = new THREE.Bone();
-    targetBone.position.x =  0
-    targetBone.position.y = 0
-    rootBone.add( targetBone );
-    bones.push( targetBone );
+    // Load the rob mesh
+    const rob_color = 0xaa6600;    
+    const rob_mat = new THREE.MeshStandardMaterial({color: rob_color})
+    const rob_parts = {};
+    const skmesh = new THREE.SkinnedMesh();
+    let bones = [];
+    let skeleton = new THREE.Skeleton();
 
+    gltf_loader.load( './public/models/robot_mesh.gltf', function ( rob_mesh ) {
 
-    //
-    // skinned mesh
-    //
-    console.log(skmesh)
-    skmesh = new THREE.SkinnedMesh();
-    skeleton = new THREE.Skeleton( bones );
-
-    skmesh.add( bones[ 0 ] ); // "root" bone
-    skmesh.bind( skeleton );
-    target.attach(targetBone)
-    scene.add(skmesh)
-
-    // attach meshes\
-    console.log(skmesh)
-    bones[1].add(rob_parts.a0);
-    bones[2].add(rob_parts.a1);
-    bones[3].add(rob_parts.a2);
-    bones[4].add(rob_parts.a3);
-    console.log(bones[1].children)
-
-    //
-    // ikSolver
-    //
-
-    const iks = [
-        {
-            target: 6, // "target"
-            effector: 5, // "bone3"
-            links: [ 
-                { 
-                    index: 4,
-                    rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
-                    rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
-                }, 
-                { 
-                    index: 3,
-                    rotationMin: new THREE.Vector3( 0,-Math.PI*2, -Math.PI/2 ),
-                    rotationMax: new THREE.Vector3( 0,Math.PI*2, Math.PI/2 )
-                }, 
-                { 
-                    index: 2,
-                    rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
-                    rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
-                }, 
-                { 
-                    index: 1,
-                    rotationMin: new THREE.Vector3( 0,-Math.PI*2,0 ),
-                    rotationMax: new THREE.Vector3( 0,Math.PI*2,0 )
-                } 
-            ] // "bone2", "bone1", "bone0"
+        for ( let i = 0; i < rob_mesh.scene.children.length; i++){
+            rob_mesh.scene.children[i].material = rob_mat;
         }
-    ];
+        
 
-    ikSolver = new CCDIKSolver( skmesh, iks );
+        rob_mesh.scene.traverse( n => {
 
-    const helper = ikSolver.createHelper(0.01);
-    //scene.add(helper);
+            if ( n.name === 'rob_arm_0' ){
+                rob_parts.a0 = n
+                //scene.add(rob_parts.a0);
+            }            
+            if ( n.name === 'rob_arm_1' ) {
+                rob_parts.a1 = n;
+                //scene.add(rob_parts.a1);
+            }
+            if ( n.name === 'rob_arm_2' ) {
+                rob_parts.a2 = n;
+                //rob_parts.a2.material = rob_mat;
+                //scene.add(rob_parts.a2);
+            }
+            if ( n.name === 'rob_arm_3' ) {
+                rob_parts.a3 = n;
+                //rob_parts.a3.material = rob_mat;
+                //scene.add(rob_parts.a3);
+            }
 
-}, undefined, function ( error ) {
-	console.error( error );
-} );
+        } );
 
-const plane_geo = new THREE.PlaneGeometry(100,100);
-const robot_plane = new THREE.Mesh( plane_geo, deco_mat);
-//scene.add(robot_plane);
+        //scene.add( rob_parts.a1 );
+        //renderer.render(scene, camera);    
 
+        // "root"
+        let rootBone = new THREE.Bone();
+        rootBone.position.y = 0;
+        bones.push( rootBone );
 
+        // "bone0"
+        let prevBone = new THREE.Bone();
+        prevBone.position.y = -10;
+        prevBone.position.z = 20;
+        rootBone.add( prevBone );
+        bones.push( prevBone );
 
-// Function to handle scroll events
-function onScroll(event) {
+        // "bone1", "bone2", "bone3"
+        for ( let i = 1; i <= 4; i ++ ) {
+            const bone = new THREE.Bone();
+            bone.position.y = 100;
+            bone.parent = prevBone;
+            bones.push( bone );
+            
+            prevBone.add( bone );
+            prevBone = bone;
+        }
 
-    
-
-    const scroll_factor = -11.65;
-
-    //x scroll
-    const scrollX = window.scrollX;
-    camera.position.x = scrollX / canvasContainer.clientWidth * scroll_factor;
-
-    //y scroll
-    const scrollY = window.scrollY;
-    camera.position.y = scrollY / canvasContainer.clientWidth * scroll_factor;
-
-    //rerender
-    renderer.render(scene, camera);
-    
-}
-
-
-// Function for resize events
-function onResize(even) {
-    // Update the renderer size to match the container's current dimensions
-    // renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
-    
-    onScroll();
-    
-    // Update the camera's aspect ratio if needed (important for perspective cameras)
-    camera.aspect = canvasContainer.offsetWidth / canvasContainer.offsetHeight;
-    // hFOV to vFOV
-    const hFOV = 58;
-    const vFOV = (2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(hFOV) / 2) / camera.aspect)) * THREE.MathUtils.RAD2DEG;
-    camera.fov = vFOV;
-    camera.updateProjectionMatrix();
-    renderer.render(scene, camera);
-
-    // fix the scroll location
-    document.y = 10
-}
-
+        // "target"
+        const targetBone = new THREE.Bone();
+        targetBone.position.x =  0
+        targetBone.position.y = 0
+        rootBone.add( targetBone );
+        bones.push( targetBone );
 
 
-function scrollToCenter() {
-    // Replace 'targetDiv' with the ID or selector of your target div.
-    const targetDiv = document.querySelector('#panel_hello');
-  
-    if (targetDiv) {
-      const windowHeight = window.innerHeight;
-      const divHeight = targetDiv.clientHeight;
-      const divTop = targetDiv.getBoundingClientRect().top + window.scrollY;
-      
-      // Calculate the scroll position to center the div.
-      const scrollPosition = divTop - (windowHeight / 2) + (divHeight / 2);
-  
-    //   // Set the scroll position using either 'html' or 'body', as cross-browser compatibility may vary.
-    //   document.documentElement.scrollTop = scrollPosition; // For modern browsers.
-    //   document.body.scrollTop = scrollPosition; // For older browsers.
+        //
+        // skinned mesh
+        //
+        console.log(skmesh)
+        skeleton = new THREE.Skeleton( bones );
 
-      window.scrollTo({ top: scrollPosition, behavior: 'smooth' });
+        skmesh.add( bones[ 0 ] ); // "root" bone
+        skmesh.bind( skeleton );
+        target.attach(targetBone)
+        //scene.add(skmesh)
+
+        // attach meshes\
+        //console.log(skmesh)
+        bones[1].add(rob_parts.a0);
+        bones[2].add(rob_parts.a1);
+        bones[3].add(rob_parts.a2);
+        bones[4].add(rob_parts.a3);
+
+        //
+        // ikSolver
+        //
+
+        const iks = [
+            {
+                target: 6, // "target"
+                effector: 5, // "bone3"
+                links: [ 
+                    { 
+                        index: 4,
+                        rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
+                        rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
+                    }, 
+                    { 
+                        index: 3,
+                        rotationMin: new THREE.Vector3( 0,-Math.PI*2, -Math.PI/2 ),
+                        rotationMax: new THREE.Vector3( 0,Math.PI*2, Math.PI/2 )
+                    }, 
+                    { 
+                        index: 2,
+                        rotationMin: new THREE.Vector3( -Math.PI*2,0, -Math.PI/2 ),
+                        rotationMax: new THREE.Vector3( Math.PI*2,0, Math.PI/2 )
+                    }, 
+                    { 
+                        index: 1,
+                        rotationMin: new THREE.Vector3( 0,-Math.PI*2,0 ),
+                        rotationMax: new THREE.Vector3( 0,Math.PI*2,0 )
+                    } 
+                ], // "bone2", "bone1", "bone0"
+                iteration: 1,
+                minAngle: 0,
+                maxAngle: Math.PI/90
+            }
+        ];
+
+        ikSolver = new CCDIKSolver( skmesh, iks );
+
+        const helper = ikSolver.createHelper();
+        scene.add(helper);
+
+    }, undefined, function ( error ) {
+        console.error( error );
+    } );
+
+    const plane_geo = new THREE.PlaneGeometry(1000,1000);
+    const robot_plane = new THREE.Mesh( plane_geo, rob_mat);
+    //scene.add(robot_plane);
+
+    // ROBOT END
+
+    // Controls in case you need to pan around the scene
+    controls = new OrbitControls( camera, renderer.domElement );
+
+    // init composer
+    composer = new EffectComposer( renderer );
+
+    // add base render pass
+    const renderPass = new RenderPass( scene, camera );
+    composer.addPass( renderPass );
+
+    // outlines for interactive objects
+    outlinePass = new OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
+    composer.addPass( outlinePass );
+
+    renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.addEventListener( 'pointermove', onPointerMove );
+
+    function onPointerMove( event ) {
+
+        if ( event.isPrimary === false ) return;
+
+        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+        checkIntersection();
 
     }
-  }
-  let mouse_3d = new THREE.Vector3();
 
-  function onMouseMove(event) {
-    // Convert mouse position to normalized device coordinates
-    mouse.x = (event.clientX / canvasContainer.offsetWidth) * 2 - 1;
-    mouse.y = -(event.clientY / canvasContainer.offsetHeight) * 2 + 1;
+    function addSelectedObject( object ) {
 
-    let raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera( mouse.clone(), camera );   
-    var hit = raycaster.intersectObjects([robot_plane]);
-    mouse_3d.copy(hit[0].point.clone());
-    
+        selectedObjects = [];
+        selectedObjects.push( object );
 
-    
+    }
 
-    // targetBone.position.x =  4
-    // targetBone.position.y = 4
+    function checkIntersection() {
+
+        raycaster.setFromCamera( mouse.clone(), camera );
+
+        const intersects = raycaster.intersectObject( scene, true );
+
+        let robot_hit = raycaster.intersectObjects([robot_plane]);
+
+        if (robot_hit.length > 0 ) {
+            console.log("here")
+            mouse_3d.copy(robot_hit[0].point);
+        }
+
+        if ( intersects.length > 0 ) {
+
+            const selectedObject = intersects[ 0 ].object;
+            addSelectedObject( selectedObject );
+            outlinePass.selectedObjects = selectedObjects;
+
+        } else {
+
+            outlinePass.selectedObjects = [];
+
+        }
+
+    }
+
+    // Event Subscriptions
+    window.addEventListener( 'resize', resize );
 
 }
 
+function resize() {
 
-  function animate(){
+    
 
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    camera.aspect = width / height;
+
+    let sf = scene_width / height
+    
+    if (window.innerWidth < height){
+        camera.left = -height/2*sf;
+        camera.right = height/2*sf;
+        camera.top = height**2 / width / 2*sf; 
+        camera.bottom = -(height**2) / width / 2*sf;
+    }else{
+        camera.left = -width/2*sf;
+        camera.right = width/2*sf;
+        camera.top = height/ 2*sf; 
+        camera.bottom = -height/ 2*sf;
+    }
+
+    
+
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( width, height );
+
+}
+
+function animate() {
+
+    controls.update();
+    //renderer.render( scene, camera );
     ikSolver?.update();
-    // move target towards mouse
-    target.position.add(mouse_3d.clone().sub( target.position).setLength(0.004));    
+    target.position.add(mouse_3d.clone().sub( target.position ).setLength(5));
+    //console.log(target.position);
+    composer.render( scene, camera );
     requestAnimationFrame( animate );
-    renderer.render(scene,camera);
+
 }
 
-//other main setup
+function initGUI( layers ) {
 
-// Update the renderer size when the window is resized
-window.addEventListener('resize', onResize);
+    gui = new GUI( { title: 'layers' } );
+    for ( let i = 0; i < layers.length; i ++ ) {
+        const layer = layers[ i ];
+        gui.add( layer, 'visible' ).name( layer.name ).onChange( function ( val ) {
+            const name = this.object.name;
+            scene.traverse( function ( child ) {
+                if ( child.userData.hasOwnProperty( 'attributes' ) ) {
+                    if ( 'layerIndex' in child.userData.attributes ) {
+                        const layerName = layers[ child.userData.attributes.layerIndex ].name;
+                        if ( layerName === name ) {
+                            child.visible = val;
+                            layer.visible = val;
+                        }
+                    }
+                }
+            } );
+        } );
+    }
 
-// Add a scroll event listener to trigger the onScroll function
-window.addEventListener('scroll', onScroll);
-
-// Set up mouse tracking
-const mouse = new THREE.Vector2();
-window.addEventListener('mousemove', onMouseMove)
-
-scrollToCenter();
-
-onScroll();
-onResize();
-animate();
-
-
-
+}
