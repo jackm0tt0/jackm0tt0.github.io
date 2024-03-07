@@ -19,13 +19,10 @@ let selectedObjects = [];
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-const target = new THREE.Object3D();
 const mouse_3d = new THREE.Vector3();
+const target = new THREE.Object3D();
 
 const scene_width = 1000;
-
-
-
 
 init();
 animate();
@@ -91,7 +88,6 @@ function init() {
     // ROBOT STUFF
 
     // Create target object for IK solver
-    const target = new THREE.Object3D();
     target.position.x = 0;
     target.position.y = 0;
     target.position.z = 0;
@@ -106,11 +102,11 @@ function init() {
     const rob_color = 0xaa6600;    
     const rob_mat = new THREE.MeshStandardMaterial({color: rob_color})
     const rob_parts = {};
-    const skmesh = new THREE.SkinnedMesh();
+    let skmesh = new THREE.SkinnedMesh();;
     let bones = [];
     let skeleton = new THREE.Skeleton();
 
-    gltf_loader.load( './public/models/robot_mesh.gltf', function ( rob_mesh ) {
+    gltf_loader.load( './public/models/robot_mesh_bigger.gltf', function ( rob_mesh ) {
 
         for ( let i = 0; i < rob_mesh.scene.children.length; i++){
             rob_mesh.scene.children[i].material = rob_mat;
@@ -174,19 +170,19 @@ function init() {
         bones.push( targetBone );
 
 
-        //
+         //
         // skinned mesh
         //
-        console.log(skmesh)
+        skmesh = new THREE.SkinnedMesh();
         skeleton = new THREE.Skeleton( bones );
 
         skmesh.add( bones[ 0 ] ); // "root" bone
         skmesh.bind( skeleton );
         target.attach(targetBone)
-        //scene.add(skmesh)
+        skmesh.boundingSphere = new THREE.Sphere(skmesh.position, 1);
+        scene.add(skmesh)
 
         // attach meshes\
-        //console.log(skmesh)
         bones[1].add(rob_parts.a0);
         bones[2].add(rob_parts.a1);
         bones[3].add(rob_parts.a2);
@@ -224,7 +220,7 @@ function init() {
                 ], // "bone2", "bone1", "bone0"
                 iteration: 1,
                 minAngle: 0,
-                maxAngle: Math.PI/90
+                maxAngle: Math.PI/180
             }
         ];
 
@@ -255,7 +251,7 @@ function init() {
 
     // outlines for interactive objects
     outlinePass = new OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
-    composer.addPass( outlinePass );
+    //composer.addPass( outlinePass );
 
     renderer.domElement.style.touchAction = 'none';
     renderer.domElement.addEventListener( 'pointermove', onPointerMove );
@@ -288,7 +284,7 @@ function init() {
 
         if (robot_hit.length > 0 ) {
             console.log("here")
-            mouse_3d.copy(robot_hit[0].point);
+            mouse_3d.copy(robot_hit[0].point.clone());
         }
 
         if ( intersects.length > 0 ) {
@@ -332,11 +328,7 @@ function resize() {
         camera.bottom = -height/ 2*sf;
     }
 
-    
-
-
     camera.updateProjectionMatrix();
-
     renderer.setSize( width, height );
 
 }
@@ -346,7 +338,7 @@ function animate() {
     controls.update();
     //renderer.render( scene, camera );
     ikSolver?.update();
-    target.position.add(mouse_3d.clone().sub( target.position ).setLength(5));
+    target.position.add(mouse_3d.clone().sub( target.position ).setLength(.5));
     //console.log(target.position);
     composer.render( scene, camera );
     requestAnimationFrame( animate );
