@@ -3,14 +3,19 @@
 	<head>
 		<title>Jack Otto</title>
 		<meta charset="utf-8">
+		<meta name="color-scheme" content="dark light">
 		<link rel="stylesheet" href="./styles.css">
 	</head>
 
 	<body>
-		<div id="loader"></div>
-
-		<div id="stats"></div>
+		<div id = "loader">
+			<div id="spinner"></div>
+		</div>
 		
+		<div class= "top-bar-menu">
+			<div id="stats"></div>
+			<input type="checkbox" class="checkbox-theme">
+		</div>
 		<script type="importmap">
 			{
                 "imports": {
@@ -19,15 +24,30 @@
                 }
             }
 		</script>
-		<div class = "canvas-container">
-			<script type="module" src="/main.js"> </script>
-		</div>
+		<script type="module" src="/main.js"> </script>
+		<div class = "canvas-container"></div>
+		<div class = "web-container">
 
-		<div class="colored-box" id = "panel_hello" > 
-			<h1>Hello Internet! I'm Jack Otto</h1>
-			an architectural and computational designer<br>
-			studying robotic fabrication<br>
-			at the <a href="https://www.itech.uni-stuttgart.de/" target="_blank">University of Stuttgart</a>
+			<div id = "intro">
+				<div id = "intro_box" >
+					<h1><nobr>Hello Internet!</nobr>
+					<nobr>I'm Jack Otto<nobr\></h1>
+					<h3>
+					<nobr>an architectural and </nobr>
+					<nobr>computational designer</nobr>
+					<nobr>studying robotic fabrication</nobr>
+					<nobr>at the <a href="https://www.itech.uni-stuttgart.de/" target="_blank">university_of_stuttgart</a></nobr>
+					</h3>
+				</div>
+			</div>
+			<div id = "spacer"></div>
+			<div id = "info"> 
+				BODY<br>
+				
+			</div>
+			<div id = "foot">
+				FOOT
+			</div>
 		</div>
 	</body>
 </html>

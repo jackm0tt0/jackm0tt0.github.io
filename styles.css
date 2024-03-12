@@ -1,131 +1,244 @@
 /* Basic Structure -------------------------- */
 
+:root{
+    color-scheme: light dark;
+
+
+    /* light theme colors */
+    --color-a: #ffffffdd;
+    --color-b: #888888dd;
+
+    --color-border: #222222;
+    --width-border: 4px;
+    --radius-border: 4px;
+
+    --color-text-a: #000000;
+    --color-text-b: #222222;
+
+    --color-anchor: #000000;
+    --color-anchor-visited: #000000;
+    --color-anchor-hover: #000000;
+    --color-anchor-active: #000000;
+
+    --color-top-menu: #ffffffff;
+    --color-bottom-menu: #ffffff66;
+}
+
+[data-theme= "dark"] {
+    --color-a: #00ff0066;
+    --color-b: #ff000066;
+    --color-border: #dddddd;
+    --color-text-a: #ffffff;
+    --color-text-b: #dddddd;
+
+    --color-anchor: #000000;
+    --color-anchor-visited: #000000;
+    --color-anchor-hover: #000000;
+    --color-anchor-active: #000000;
+
+    --color-top-menu: #003300dd;
+    --color-bottom-menu: #003300dd;
+}
+
+
 body {
-    background-color: #111111;
+    display: flex;
+    width: 100%;
+    padding-right: 20px;
+    margin: 0;
+    padding: 0;
+    font-family: monospace;
+    pointer-events: none;
     overflow-x: hidden;
+    overflow-y: scroll; 
+
+}
+
+.top-bar-menu{
+    top:0;
+    right:0;
+    display: flex;
+    align-content: center;
+    width: 100%;
+    height:50px;
+    background-color: var(--color-top-menu);
+    position: fixed;
+    z-index: 2;
+}
+
+.top-bar-menu::after{
+   content: '';
+   position:absolute;
+   top: 0;
+   left: 0;
+   width: 100%;
+   height: 50px; /* Adjust height for the fade-out length */
+   transform: translate(0,49.3px);
+   background-image: linear-gradient(to bottom, var(--color-top-menu), transparent);
+   z-index: 2;
 }
 
 .canvas-container {
-    /* center element */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    position: fixed;
-    /* fill page */
     width: 100%;
-    height: 100%;
-
-    background-color: #222222;
+    position: fixed;
+    pointer-events: all;
+    background-color: transparent
     
 }
 
-.web-container {
-    /* center element */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    position: absolute;
-    z-index: 100;
-    width: 100vw;
-    height: 445vw;
+.lil-gui{
+    pointer-events: all
+}
 
+.web-container {
+    width: 100%;
+    text-align: center;
+    color: var(--color-text-b);
+    overflow:visible;
+    z-index: 1;
+
+    scroll-snap-stop: always;
+}
+
+#intro {
+    display: flex;
+    align-items: center;
+    background-color: transparent;
+    height: 100vh;
+    pointer-events: all;
+}
+
+#intro_box {
+    background-color: var(--color-b);
+    padding: 3vh;
+    margin: 12.5vw;
+    font-size: max(1.5vh,1.5vw);
+
+    border-width: var(--width-border);
+    border-radius: var(--radius-border);
+    border-style: solid;
+    border-color: var(--color-border);
+}
+
+#spacer {
+    height: min(75vw,75vh);
+    pointer-events: none;
+}
+
+#info {
     
+    background-color: transparent;
+    min-height: 25vh;
+    padding: 3vh;
+    margin-left: 12.5vw;
+    margin-right: 12.5vw;
+    font-size: max(1.5vh,1.5vw);
+
+    pointer-events: all;
+}
+
+#foot {
+    border-top: var(--width-border) solid var(--color-border);
+    background-color: var(--color-bottom-menu);
+    height: min(10vh,10vw);
 }
 
 /* text styles -------------------------- */
 
 h1{
-    font-size: 150%;
-    line-height: 60%;
-    color: #ffffff
+    color: var(--color-text-a);
+
 }
 
 a:link{
-    color: #00aa00;
+    color: var(--color-anchor);
     text-decoration: none;
 }
 
 a:visited{
-    color: #cc6600;
+    color: var(--color-anchor-visited);
     text-decoration: none;
 }
 
 a:hover{
-    color: #00ff00;
+    color: var(--color-anchor-hover);
     text-decoration: none;
 }
 
 a:active{
-    color: #aa6633;
+    color: var(--color-anchor-active);
     text-decoration: none;
 }
 
-/* Text Box Overlays -------------------------- */
-
-.colored-box {
-    /* positioning per item */
-    position: relative;
-    /* appearance*/
-    background-color: #0a5a32aa;
-    color: #dddddd;
-    border-radius: 5px;
-    /* text */
-    font-family: monospace;
-    white-space: nowrap;
-    padding: 2vw;
-    color: #cccccc;
-
-    outline-color: #dddddd;
-    outline-width: 4px;
-    outline-style: auto;
-}
-
-/* box instances  -------------------------- */
-
-#panel_hello {
-    width : 90%;
-    max-width: 50%;
-    height: 3%;
-    left: 3%;
-    top: 100%;
-    font-size: 1.8vw;
-}
-
-#panel_pitch {
-    width: 56.0%;
-    height: 1.0%;
-    left: 20%;
-    top: 71.25%;
-    font-size: 1.8vw;
-    text-align: center;
-}
-
-#panel_work {
-    width: 56.0%;
-    height: 1.0%;
-    left: 20%;
-    top: 82.8%;
-    font-size: 1.8vw;
-    text-align: center;
-    line-height: 4vw;
-}
-
-/* rhino stuff ----------------------------*/
+/* loader ----------------------------*/
 
 #loader {
-    border: 5px solid #f3f3f3; /* Light grey */
-    border-top: 5px solid #0b5211; /* Grey */
+    position: fixed;
+    width: 105%;
+    height: 105%;
+    z-index: 3;
+    background-color: black;
+}
+
+#spinner{
+    border: 5px solid var(--color-border);
+    background-color: var(--color-b);
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 70px;
+    height: 70px;
     animation: spin 1s linear infinite;
     position: absolute;
-    top: 50%;
-    left: 50%;
+    top: 50vh;
+    left: 50vw;
     z-index: 2;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% { 
+        transform: rotate(0deg);
+        border-radius: 5%;
+    }
+    50%{
+        transform: rotate(180deg); 
+        border-radius: 50%;
+    }
+    100% { 
+        transform: rotate(360deg);
+        border-radius: 5%;
+    }
 }
+
+/* Scrollbar ----------------------------*/
+
+/* width */
+::-webkit-scrollbar {
+    width: 20px;
+    background-color: transparent;
+  }
+  
+  /* Track */
+  ::-webkit-scrollbar-track {
+    border-radius: var(--radius-border);
+    background-color: var(--color-a);
+    border-color: var(--color-border);
+    border-style: solid;
+    border-width: var(--width-border);
+  }
+
+  /* Handle */
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-a);
+    border-radius: var(--radius-border);
+    border-color: var(--color-border);
+    border-style: solid;
+    border-width: var(--width-border);
+  }
+
+  /* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-b);
+    border-radius: var(--radius-border);
+    border-color: var(--color-border);
+    border-style: solid;
+    border-width: var(--width-border);
+  }
