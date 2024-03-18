@@ -53,4 +53,53 @@ const MaskShader = {
 
 };
 
-export { MaskShader };
+const MyOutlineShader = {
+
+	name: 'MyOutlineShader',
+
+	uniforms: {
+
+        'tDiffuse': { value: null },
+		'tDepth' : { value: null },
+		'cameraNear': { value: 1 },
+		'cameraFar': { value: 1000 }
+
+
+	},
+
+	vertexShader: /* glsl */`
+
+		varying vec2 vUv;
+
+		void main() {
+
+			vUv = uv;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+		}`,
+
+	fragmentShader: /* glsl */`
+
+
+        uniform sampler2D tDiffuse;
+		uniform sampler2D tDepth;
+
+		uniform float cameraNear;
+		uniform float cameraFar;
+
+		varying vec2 vUv;
+
+		void main() {
+
+			float depth = texture2D( tDepth, vUv ).x;
+			
+			gl_FragColor = vec4( 0.0, 1.0, 0.0 , 1.0);     
+		}`
+
+};
+
+export { 
+	MyOutlineShader,
+	MaskShader 
+};

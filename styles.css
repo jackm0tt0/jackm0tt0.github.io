@@ -137,10 +137,11 @@ body {
     
     background-color: transparent;
     min-height: 25vh;
+    padding-bottom: 10px;
     /* padding: 3vh;
     margin-left: 12.5vw;
     margin-right: 12.5vw; */
-    font-size: max(1.5vh,1.5vw);
+    font-size: min(1.5vh,1.5vw);
 
     pointer-events: all;
 }
@@ -149,6 +150,8 @@ body {
     border-top: var(--width-border) solid var(--color-border);
     background-color: var(--color-bottom-menu);
     height: min(10vh,10vw);
+    
+
 }
 
 /* text styles -------------------------- */
@@ -160,6 +163,10 @@ body {
 h1{
     color: var(--color-text-a);
 
+}
+
+ul{
+    align-items: center;
 }
 
 a:link{

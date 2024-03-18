@@ -33,7 +33,7 @@ const toggleSwitch = document.getElementsByClassName( 'checkbox-theme')[0];
 const stats = new Stats();
 const statsContainer = document.getElementById( 'stats' );
 stats.domElement.style.top = '0px';
-//statsContainer.appendChild( stats.domElement );
+statsContainer.appendChild( stats.domElement );
 
 // ThreeJS Canvas Container
 const canvasContainer = document.querySelector('.canvas-container');
@@ -79,7 +79,7 @@ animate();
 function initScene() {
 
     // init camera
-    camera = new THREE.OrthographicCamera(-1,1,1,-1,0.01,10000);
+    camera = new THREE.OrthographicCamera(-1,1,1,-1,0.001,15000);
 
     camera.position.copy(default_camera_position);
     look = new THREE.Vector3().copy(default_look);
@@ -367,6 +367,7 @@ function initRenderer(){
     // COMPOSER
     composer = new EffectComposer( renderer );
     composer.renderToScreen = true;
+    
 
     // Texture where we save the background image for the scene
     baseTexture = new THREE.FramebufferTexture(canvas_width*window.devicePixelRatio, canvas_height*window.devicePixelRatio);
@@ -417,6 +418,12 @@ function initRenderer(){
     maskPass.uniforms.tBase.value = baseTexture;
 
     composer.addPass(maskPass);
+
+    // const myOutlinePass = new ShaderPass( CustomShaders.MyOutlineShader );
+    // myOutlinePass.uniforms.cameraNear.value = camera.near;
+    // myOutlinePass.uniforms.cameraFar.value = camera.far;
+
+    //composer.addPass(myOutlinePass);
     
 
 }
@@ -559,13 +566,22 @@ function resize() {
     // set line resolution.
     line_mat.resolution.set( canvas_width, canvas_height );
 
-        camera.updateProjectionMatrix();
+    camera.updateProjectionMatrix();
     renderer.setSize( canvas_width, canvas_height );
     composer.setSize( canvas_width, canvas_height );
+
+    // custom shader pass
+    baseTexture = new THREE.FramebufferTexture(canvas_width*window.devicePixelRatio, canvas_height*window.devicePixelRatio);
+
+    const newMaskPass = new ShaderPass( CustomShaders.MaskShader );
+    newMaskPass.uniforms.threshold.value = 0.5;
+    newMaskPass.uniforms.color.value = [0.1,0.1,0.1];
+    newMaskPass.uniforms.tBase.value = baseTexture;
+    
+    composer.passes[composer.passes.length-1] = newMaskPass;
+
     render();
 
-    //baseTexture = new THREE.FramebufferTexture(10,10);
-    //composer.passes[composer.passes.length-1].uniforms.tBase = baseTexture;
 
 }
 
@@ -574,6 +590,7 @@ function resize() {
 function render(){
 
     const vec  = new THREE.Vector2();
+    //baseTexture = new THREE.FramebufferTexture(10,10);
 
     scene.overrideMaterial = null;
     renderer.render(scene, camera);
@@ -597,8 +614,11 @@ function animate() {
 
         // update robot
         ikSolver?.update();
-        if (target.position.distanceTo(mouse_3d)>1){
-            target.position.add(mouse_3d.clone().sub( target.position ).setLength((time - prevTime)/3));
+        if (target.position.distanceTo(mouse_3d)>10){
+            var dt = (time - prevTime);
+            var dx = target.position.distanceTo(mouse_3d);
+            var step = Math.min(dt/3, dx/2);
+            target.position.add(mouse_3d.clone().sub( target.position ).setLength(step));
         }
 
         render();
