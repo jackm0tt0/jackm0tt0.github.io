@@ -26,6 +26,8 @@ import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
 
 // Find Document Elements
 
+const mobile = isMobile();
+
 // Light-Dark Mode Toggle
 const toggleSwitch = document.getElementsByClassName( 'checkbox-theme')[0];
 
@@ -46,8 +48,8 @@ const loader = document.getElementById( 'loader' )
 
 // Initialize Global Stuff
 let camera, look, scene; // Scene
-let line_mat, override_mat; // Materials
-let composer, renderer, baseTexture; // Rendering
+const MaterialSet = {};
+let composer, renderer, baseTexture, renderTarget; // Rendering
 let gui; // Utility
 let ikSolver, robot_zone, robot_parts; //Robot
 let prevTime = performance.now(); //Time
@@ -68,7 +70,21 @@ const mouse_3d = default_robot_pos.clone();
 const target = new THREE.Object3D();
 target.position.copy(mouse_3d);
 
+// Create Scene Objects
+const outlined_objects = new THREE.Group();
+outlined_objects.name = "outlined_objects";
+
+const context = new THREE.Group();
+context.name = "context";
+
+const grid = new THREE.Group();
+grid.name = "grid";
+
+
+
 // MAIN
+
+
 initDocument();
 initScene();
 initRenderer();
@@ -87,29 +103,9 @@ function initScene() {
     
     // init scene
     scene = new THREE.Scene();
-    
-    // Main Lights
-    const directionalLight = new THREE.DirectionalLight( 0xffffff, 2 );
-    directionalLight.position.set( 1, -3, 10 );
-    scene.add( directionalLight );
 
-    const domeLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
-    scene.add(domeLight);
-
-    // Create a material for lines
-    line_mat = new LineMaterial( {
-
-        color: 0x00ffff,
-        linewidth: 5, // in pixels
-        dashed: false,
-        alphaToCoverage: true,
-        vertexColors: true,
-    
-    } );
-
-    // assign a material to the robot
-    override_mat = new THREE.MeshDepthMaterial();
-    override_mat.flatShading = true;
+    // init materials
+    initMaterialSet("light");
     
     // Load from Rhino
     const rh_loader = new Rhino3dmLoader();
@@ -124,6 +120,11 @@ function initScene() {
         // setup robot
         initRobot( robot_parts );
         //initGUI( rh_object.userData.layers );
+
+        scene.add(outlined_objects);
+        context.add(grid);
+        scene.add(context);
+
 
         // hide loading sequence
         loader.style.display = 'none';
@@ -141,7 +142,39 @@ function initScene() {
 
     } );
 
-    return scene;
+    console.log(scene)
+}
+
+function initMaterialSet( mode ){
+
+        MaterialSet["robot"] = new THREE.MeshMatcapMaterial({flatShading: true});
+        MaterialSet["ground"] = new THREE.MeshBasicMaterial();
+        MaterialSet["ground_accent"] = new THREE.MeshMatcapMaterial();
+
+        MaterialSet["grid"] = new LineMaterial( {linewidth: 5} );
+
+        // assign a material to the robot
+        MaterialSet["override"] = new THREE.MeshDepthMaterial();
+
+        setMaterialSetColors( "light" );
+
+}
+
+function setMaterialSetColors( mode ){
+
+    if (mode === "light"){
+        
+        console.log(MaterialSet["robot"]);
+        MaterialSet["robot"].color = new THREE.Color(0xffffff);
+        MaterialSet["ground"].color = new THREE.Color(0xdddddd);
+        MaterialSet["ground_accent"].color = new THREE.Color(0x999999);
+
+        MaterialSet["grid"].color = new THREE.Color(0x222222);
+
+    }
+    else if (mode === "dark" ){
+        console.log('you did not implement this yet!')
+    }
 }
 
 function initDocument(){
@@ -294,7 +327,7 @@ function initRobot( robot_parts ){
     //
     
     skmesh = new THREE.SkinnedMesh();
-    skmesh.material = override_mat;
+    skmesh.material = MaterialSet["override"];
     skeleton = new THREE.Skeleton( bones );
 
     skmesh.add( bones[ 0 ] ); // "root" bone
@@ -303,7 +336,7 @@ function initRobot( robot_parts ){
     skmesh.boundingSphere = new THREE.Sphere(skmesh.position, 1);
     // skmesh.geometry.computeBoundingSphere();
     //scene.add(skmesh);
-    scene.add(skmesh);
+    outlined_objects.add(skmesh);
 
     //
     // ikSolver
@@ -372,70 +405,42 @@ function initRenderer(){
     // Texture where we save the background image for the scene
     baseTexture = new THREE.FramebufferTexture(canvas_width*window.devicePixelRatio, canvas_height*window.devicePixelRatio);
     
+    // render target which includes depth
+    renderTarget = new THREE.WebGLRenderTarget(canvas_width*window.devicePixelRatio, canvas_height*window.devicePixelRatio);
+
+
+
     // Mask Render Pass (use override depth material)
-    
     const renderPass = new RenderPass( scene, camera );
+
     composer.addPass(renderPass);
 
 
-    // Sobel Pass
-    const effectSobel = new ShaderPass( SobelOperatorShader );
-
-    effectSobel.uniforms[ 'resolution' ].value.x = canvas_width/1.5 * window.devicePixelRatio;
-    effectSobel.uniforms[ 'resolution' ].value.y = canvas_height/1.5 * window.devicePixelRatio;
+    // custom outline pass
+    const myOutlinePass = new ShaderPass( CustomShaders.MyOutlineShader );
+    myOutlinePass.uniforms.tBase.value = baseTexture;
+    myOutlinePass.uniforms.resolution.value.x = canvas_width/2 * window.devicePixelRatio;
+    myOutlinePass.uniforms.resolution.value.y = canvas_height/2 * window.devicePixelRatio;
+    myOutlinePass.uniforms.threshold.value = 0.2;
     
-    composer.addPass(effectSobel);
+    composer.addPass(myOutlinePass);
 
-
-    // Convolution Shader
-    const convolutionPass = new ShaderPass(ConvolutionShader);
-    convolutionPass.uniforms.uImageIncrement.value = new THREE.Vector2 (.0001,0);
-    convolutionPass.uniforms.cKernel.value = [
-        0.75,    0.25,    0.00,    0.25,    0.75,
-        0.25,    0.75,    0.75,    0.75,    0.25,
-        0.00,    0.75,    1.00,    0.75,    0.00,
-        0.25,    0.75,    0.75,    0.75,    0.25,
-        0.75,    0.25,    0.00,    0.25,    0.75
-        
-    ]
-    // convolutionPass.uniforms.cKernel.value = [
-    //     1,.2,1,
-    //     .2,1,.2,
-    //     1,.2,1
-    // ] //Alternate smaller conv filter
-    composer.addPass(convolutionPass);
-
-    // FXAA Shader
-    const fxaaPass = new ShaderPass(FXAAShader);
-    fxaaPass.material.uniforms[ 'resolution' ].value.x = 1 / ( canvas_width * window.devicePixelRatio);
-	fxaaPass.material.uniforms[ 'resolution' ].value.y = 1 / ( canvas_height * window.devicePixelRatio);
-    composer.addPass(fxaaPass);
-
-    // custom shader pass
-    const maskPass = new ShaderPass( CustomShaders.MaskShader );
-    maskPass.uniforms.threshold.value = 0.5;
-    maskPass.uniforms.color.value = [0.1,0.1,0.1];
-    maskPass.uniforms.tBase.value = baseTexture;
-
-    composer.addPass(maskPass);
-
-    // const myOutlinePass = new ShaderPass( CustomShaders.MyOutlineShader );
-    // myOutlinePass.uniforms.cameraNear.value = camera.near;
-    // myOutlinePass.uniforms.cameraFar.value = camera.far;
-
-    //composer.addPass(myOutlinePass);
-    
+   
 
 }
 
 function loadRhinoAssets(rh_object){
     //When load is complete execute this:
     rh_object.name = "rhino_scene";
-    scene.add( rh_object );
+    //scene.add( rh_object );
+    
 
     robot_parts = {};
     robot_parts.joints = {};
-    rh_object.traverse( n => {
+
+        rh_object.traverse( n => {
+        
+        n = n.clone();
 
         // ignore the file itself
         if (n.userData.objectType !== "File3dm"){
@@ -454,8 +459,7 @@ function loadRhinoAssets(rh_object){
                     robot_parts.zone = n;
                     n.visible = false;
                 }else{
-                    n.material.flatShading = true;
-                    // n.material = new THREE.MeshBasicMaterial();
+                    n.material = MaterialSet["robot"];
                 }
                 
                 
@@ -473,20 +477,28 @@ function loadRhinoAssets(rh_object){
                 
             }            
 
-            // how to handle lines
-
-            if (n.type === "Line" && n.visible){
+            else if (web_key === "grid"){
 
                 let geom = new LineGeometry();
                 geom.setPositions( n.geometry.attributes.position.array );
                 
-                let newline = new Line2(geom, line_mat);
+                let newline = new Line2(geom, MaterialSet["grid"]);
                 newline.position.set(0,0,0);
                 newline.computeLineDistances();
-                scene.add(newline);
+                grid.add(newline);
                 n.visible = false;// hide old lines
+                
             }
-        
+
+            else if (web_key === "ground"){
+                n.material = MaterialSet["ground"]; 
+                context.add(n);
+            }
+
+            else if (web_key === "ground_accent"){
+                n.material = MaterialSet["ground_accent"];
+                context.add(n);
+            }    
         }
     });
 }
@@ -497,8 +509,8 @@ function mouseMove( event ) {
 
     if ( event.isPrimary === false ) return;
 
-    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    mouse.x = ( event.clientX / canvas_width ) * 2 - 1;
+    mouse.y = - ( event.clientY / canvas_height ) * 2 + 1;
 
     checkIntersection();
 
@@ -527,23 +539,30 @@ function scroll() {
     var centerY = rect.top + rect.height / 2;
     var delta_y
 
-    if (window.innerWidth < window.innerHeight){
-        delta_y = -(window.innerHeight/2 - centerY) / (window.innerWidth-18);
+    if (canvas_width < canvas_height){
+        delta_y = -(canvas_height/2 - centerY) / (canvas_width);
     }
     else {
-        delta_y = -(window.innerHeight/2 - centerY) / window.innerHeight;
+        delta_y = -(canvas_height/2 - centerY) / canvas_height;
     }
 
     look.z = default_look.z + delta_y * scroll_factor;
     camera.position.z = default_camera_position.z + delta_y * scroll_factor;
 
-    checkIntersection();
+    if (!mobile){checkIntersection();}
 }
 
 function resize() {
 
-    canvas_width = window.innerWidth -28;
-    canvas_height = window.innerHeight;
+    if (mobile){
+        canvas_width = window.innerWidth;
+        canvas_height = window.innerHeight;
+    }
+    else{
+        canvas_width = window.innerWidth-28; // offset for scrollbar
+        canvas_height = window.innerHeight;
+    }
+    
 
     camera.aspect = canvas_width / canvas_height;
 
@@ -563,22 +582,26 @@ function resize() {
     
     scroll();
 
-    // set line resolution.
-    line_mat.resolution.set( canvas_width, canvas_height );
-
     camera.updateProjectionMatrix();
-    renderer.setSize( canvas_width, canvas_height );
+
+    let px_sf = 1;
+
+    renderer.setPixelRatio( window.devicePixelRatio/px_sf );
+
+    MaterialSet["grid"].resolution.set( canvas_width, canvas_height );
+    renderer.setSize( canvas_width, canvas_height);
     composer.setSize( canvas_width, canvas_height );
 
-    // custom shader pass
-    baseTexture = new THREE.FramebufferTexture(canvas_width*window.devicePixelRatio, canvas_height*window.devicePixelRatio);
+    // update custom shader pass
+    const newOutlinePass = new ShaderPass( CustomShaders.MyOutlineShader );  
+    baseTexture = new THREE.FramebufferTexture(canvas_width*window.devicePixelRatio/px_sf, canvas_height*window.devicePixelRatio/px_sf);
+    newOutlinePass.uniforms.tBase.value = baseTexture;
+    newOutlinePass.uniforms.resolution.value.x = canvas_width/2.4 * window.devicePixelRatio;
+    newOutlinePass.uniforms.resolution.value.y = canvas_height/2.4 * window.devicePixelRatio;
+    newOutlinePass.uniforms.threshold.value = 0.2;
 
-    const newMaskPass = new ShaderPass( CustomShaders.MaskShader );
-    newMaskPass.uniforms.threshold.value = 0.5;
-    newMaskPass.uniforms.color.value = [0.1,0.1,0.1];
-    newMaskPass.uniforms.tBase.value = baseTexture;
-    
-    composer.passes[composer.passes.length-1] = newMaskPass;
+      
+    composer.passes[composer.passes.length-1] = newOutlinePass;
 
     render();
 
@@ -590,20 +613,24 @@ function resize() {
 function render(){
 
     const vec  = new THREE.Vector2();
-    //baseTexture = new THREE.FramebufferTexture(10,10);
 
     scene.overrideMaterial = null;
+    context.visible = true;
     renderer.render(scene, camera);
     
     renderer.copyFramebufferToTexture(vec, baseTexture);
 
-    scene.overrideMaterial = override_mat;
+    scene.overrideMaterial = MaterialSet["override"];
+    context.visible = false;
     composer.render();
 }
 
 function animate() {
 
     setTimeout( function() {
+
+        //test
+        //outlined_objects.visible = !outlined_objects.visible;
 
         // get time
         const time = performance.now();
@@ -627,9 +654,20 @@ function animate() {
         // set previous time
         prevTime = time;
 
-    }, 1000 / 100 );
+    }, 1000 / 60);
 
     
 
+}
+
+// utilities
+
+function isMobile() {
+    var match = window.matchMedia || window.msMatchMedia;
+    if(match) {
+        var mq = match("(pointer:coarse)");
+        return mq.matches;
+    }
+    return false;
 }
 

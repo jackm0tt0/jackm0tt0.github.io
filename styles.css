@@ -3,7 +3,7 @@
 :root{
     color-scheme: light dark;
 
-    background-color: rgb(179, 44, 44);
+    background-color: rgb(6, 46, 15);
 
 
     /* light theme colors */
@@ -70,7 +70,7 @@ body {
     background-color: var(--color-top-menu);
     position: fixed;
     z-index: 2;
-    pointer-events: none;
+    pointer-events: all;
 }
 
 .top-bar-menu::after{
@@ -120,7 +120,7 @@ body {
     background-color: var(--color-b);
     padding: 3vh;
     margin: 12.5vw;
-    font-size: max(1.5vh,1.5vw);
+    font-size: max(1vh,1.5vw);
 
     border-width: var(--width-border);
     border-radius: var(--radius-border);
@@ -141,7 +141,7 @@ body {
     /* padding: 3vh;
     margin-left: 12.5vw;
     margin-right: 12.5vw; */
-    font-size: min(1.5vh,1.5vw);
+    font-size: min(2vh,2vw);
 
     pointer-events: all;
 }
@@ -166,7 +166,9 @@ h1{
 }
 
 ul{
-    align-items: center;
+    text-align: center;
+    /* margin:0; */
+    padding:0;
 }
 
 a:link{
