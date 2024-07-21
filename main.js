@@ -347,13 +347,13 @@ function initRobot( robot_parts ){
             links: [ 
                 { 
                     index: 5,
-                    rotationMin: new THREE.Vector3( 0, -Math.PI/4, 0 ),
-                    rotationMax: new THREE.Vector3( 0, Math.PI/4, 0 )
+                    rotationMin: new THREE.Vector3( 0, 0, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
                 }, 
                 { 
                     index: 4,
-                    rotationMin: new THREE.Vector3( 0,0,-Math.PI*2),
-                    rotationMax: new THREE.Vector3( 0,0,Math.PI*2)
+                    rotationMin: new THREE.Vector3( 0,0,-Math.PI/4),
+                    rotationMax: new THREE.Vector3( 0,0,Math.PI/4)
                 }, 
                 { 
                     index: 3,
