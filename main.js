@@ -14,9 +14,6 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { SobelOperatorShader } from 'three/addons/shaders/SobelOperatorShader.js';
-import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { ConvolutionShader } from 'three/addons/shaders/ConvolutionShader.js';
 
 //Custom Shaders
 import * as CustomShaders from './shaders.js'
@@ -58,7 +55,7 @@ let canvas_width, canvas_height; //Document
 // Default Settings
 // Z-up
 THREE.Object3D.DEFAULT_UP.set( 0, 0, 1 );
-const default_robot_pos = new THREE.Vector3(100,10,350);
+const default_robot_pos = new THREE.Vector3(100,10,250);
 const default_camera_position = new THREE.Vector3(4000,-4000,3400);
 const default_look = new THREE.Vector3(0,0,0);
 const scene_width = 1100;
@@ -80,11 +77,7 @@ context.name = "context";
 const grid = new THREE.Group();
 grid.name = "grid";
 
-
-
 // MAIN
-
-
 initDocument();
 initScene();
 initRenderer();
@@ -147,7 +140,7 @@ function initScene() {
 
 function initMaterialSet( mode ){
 
-        MaterialSet["robot"] = new THREE.MeshMatcapMaterial({flatShading: true});
+        MaterialSet["robot"] = new THREE.MeshMatcapMaterial({flatShading: true, transparent: true, opacity: 0.95});
         MaterialSet["ground"] = new THREE.MeshBasicMaterial();
         MaterialSet["ground_accent"] = new THREE.MeshMatcapMaterial();
 
@@ -269,6 +262,8 @@ function initRobot( robot_parts ){
     let bones = [];
     let skeleton = new THREE.Skeleton(); 
 
+    console.log(robot_parts)
+
     // build bones from the skeleton
 
     let bone_count = robot_parts.skeleton_polyline.geometry.attributes.position.count
@@ -282,6 +277,9 @@ function initRobot( robot_parts ){
             robot_parts.skeleton_polyline.geometry.attributes.position.array[i * 3 + 2]
         ))
     }
+
+    // add robot base to scene
+    scene.add(robot_parts.base);
 
     // "root"
     let rootBone = new THREE.Bone();
@@ -349,8 +347,8 @@ function initRobot( robot_parts ){
             links: [ 
                 { 
                     index: 5,
-                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
-                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                    rotationMin: new THREE.Vector3( 0, -Math.PI/4, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/4, 0 )
                 }, 
                 { 
                     index: 4,
@@ -359,18 +357,18 @@ function initRobot( robot_parts ){
                 }, 
                 { 
                     index: 3,
-                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
-                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                    rotationMin: new THREE.Vector3( 0, Math.PI/4, 0),
+                    rotationMax: new THREE.Vector3( 0, Math.PI*3/2, 0 )
                 }, 
                 { 
                     index: 2,
-                    rotationMin: new THREE.Vector3( 0, -Math.PI/2, 0 ),
-                    rotationMax: new THREE.Vector3( 0, Math.PI/2, 0 )
+                    rotationMin: new THREE.Vector3( 0, -Math.PI/4, 0 ),
+                    rotationMax: new THREE.Vector3( 0, Math.PI/4, 0 )
                 }, 
                 { 
                     index: 1,
-                    rotationMin: new THREE.Vector3( 0,0,-Math.PI*2),
-                    rotationMax: new THREE.Vector3( 0,0,Math.PI*2)
+                    rotationMin: new THREE.Vector3( 0,0,-Math.PI),
+                    rotationMax: new THREE.Vector3( 0,0,Math.PI)
                 } 
             ], // "bone2", "bone1", "bone0"
             iteration: 3,
@@ -523,7 +521,7 @@ function checkIntersection() {
     let robot_hit = raycaster.intersectObjects([robot_zone]);
 
     if (robot_hit.length > 0 ) {
-        mouse_3d.copy(robot_hit[1].point.clone());
+        mouse_3d.copy(robot_hit[0].point.clone());
     }else{
         mouse_3d.copy(default_robot_pos);
     }
